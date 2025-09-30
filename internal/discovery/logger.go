@@ -31,6 +31,4 @@ func NewNoopLogLogger() *log.Logger {
 	return lg
 }
 
-// Optionally a reusable instance.
-var NoopLogger = NewNoopLogger()
 var NoopLogLogger = NewNoopLogLogger()
