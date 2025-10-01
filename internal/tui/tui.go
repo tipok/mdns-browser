@@ -80,9 +80,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return strings.EqualFold(li.Name, listItem.Name)
 		})
-
+		numberOfItems := len(currentItems)
 		if idx == -1 {
-			m.list.InsertItem(len(currentItems), listItem)
+			if numberOfItems == 0 {
+				m.vp.SetContent(listItem.Details())
+			}
+			m.list.InsertItem(numberOfItems, listItem)
 		}
 		// keep listening
 		return m, listenForItems(m.addCh)
@@ -99,7 +102,7 @@ func (m model) View() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, vpView)
 }
 
-func List(opts ListOpts) tea.Model {
+func Tui(opts ListOpts) tea.Model {
 	var items []list.Item
 	listDelegate := list.NewDefaultDelegate()
 	l := list.New(items, listDelegate, 0, 0)

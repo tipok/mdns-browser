@@ -36,7 +36,7 @@ func main() {
 		}
 	}()
 
-	m := tui.List(tui.ListOpts{
+	m := tui.Tui(tui.ListOpts{
 		Title: "Found Services",
 		AddCh: addCh,
 	})
