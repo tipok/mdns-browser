@@ -62,7 +62,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !ok {
 				continue
 			}
-			li.MaxWidth = m.listWidth
+			li.MaxListWidth = m.listWidth
+			li.MaxDetailsWidth = m.vpWidth
 		}
 		return m, nil
 	case spinner.TickMsg:
@@ -71,7 +72,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case addItemMsg:
 		listItem := data.ListItem(msg)
-		listItem.MaxWidth = m.listWidth
+		listItem.MaxListWidth = m.listWidth
+		listItem.MaxDetailsWidth = m.vpWidth
 		currentItems := m.list.Items()
 		idx := slices.IndexFunc(currentItems, func(it list.Item) bool {
 			li, ok := it.(data.ListItem)

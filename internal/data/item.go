@@ -8,14 +8,15 @@ import (
 )
 
 type ListItem struct {
-	Name       string
-	Host       string
-	AddrV4     string
-	AddrV6     string
-	Port       int
-	Info       string
-	InfoFields []string
-	MaxWidth   int
+	Name            string
+	Host            string
+	AddrV4          string
+	AddrV6          string
+	Port            int
+	Info            string
+	InfoFields      []string
+	MaxListWidth    int
+	MaxDetailsWidth int
 }
 
 func truncateString(title string, maxWidth int) string {
@@ -35,12 +36,12 @@ func truncateString(title string, maxWidth int) string {
 
 func (i ListItem) Title() string {
 	if strings.TrimSpace(i.Name) == "" {
-		return truncateString(i.Host, i.MaxWidth)
+		return truncateString(i.Host, i.MaxListWidth)
 	}
-	return truncateString(i.Name, i.MaxWidth)
+	return truncateString(i.Name, i.MaxListWidth)
 }
 func (i ListItem) Description() string {
-	return truncateString(i.Host, i.MaxWidth)
+	return truncateString(i.Host, i.MaxListWidth)
 }
 func (i ListItem) FilterValue() string {
 	return i.Title()
