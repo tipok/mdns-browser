@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -31,8 +32,11 @@ func listenForItems(ch <-chan data.ListItem) tea.Cmd {
 
 type model struct {
 	list        list.Model
+	vp          viewport.Model
 	addCh       chan data.ListItem
 	spinnerTick tea.Cmd
+	listWidth   int
+	vpWidth     int
 }
 
 func (m model) Init() tea.Cmd {
@@ -47,13 +51,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v)
+		totalWidth := msg.Width - h
+		m.listWidth = totalWidth * 2 / 3
+		m.vpWidth = totalWidth / 3
+		m.list.SetSize(m.listWidth, msg.Height-v)
+		m.vp.Width = m.vpWidth
+		m.vp.Height = msg.Height - v
+		for _, item := range m.list.Items() {
+			li, ok := item.(data.ListItem)
+			if !ok {
+				continue
+			}
+			li.MaxWidth = m.listWidth
+		}
+		return m, nil
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
 	case addItemMsg:
 		listItem := data.ListItem(msg)
+		listItem.MaxWidth = m.listWidth
 		currentItems := m.list.Items()
 		idx := slices.IndexFunc(currentItems, func(it list.Item) bool {
 			li, ok := it.(data.ListItem)
@@ -76,7 +94,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return docStyle.Render(m.list.View())
+	listView := lipgloss.NewStyle().Width(m.listWidth).Render(m.list.View())
+	vpView := lipgloss.NewStyle().Width(m.vpWidth).Render(m.vp.View())
+	return lipgloss.JoinHorizontal(lipgloss.Top, listView, vpView)
 }
 
 func List(opts ListOpts) tea.Model {
@@ -86,10 +106,14 @@ func List(opts ListOpts) tea.Model {
 	l.Styles.TitleBar.PaddingLeft(5)
 	l.SetSpinner(spinner.MiniDot)
 	tick := l.StartSpinner()
+	vp := viewport.New(0, 0)
+	vp.SetContent(`Welcome to the chat room!
+Type a message and press Enter to send.`)
 	m := model{
 		list:        l,
 		addCh:       opts.AddCh,
 		spinnerTick: tick,
+		vp:          vp,
 	}
 
 	m.list.Title = opts.Title
