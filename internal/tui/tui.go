@@ -46,8 +46,31 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		switch msg.String() {
+		case "ctrl+c":
 			return m, tea.Quit
+		case "j", "down":
+			if m.list.Index() == len(m.list.Items())-1 {
+				m.vp.ScrollDown(1)
+				return m, nil
+			}
+		case "k", "up":
+			if m.list.Index() == 0 {
+				m.vp.ScrollUp(1)
+				return m, nil
+			}
+		case "ctrl+j":
+			m.vp.HalfPageDown()
+			return m, nil
+		case "ctrl+k":
+			m.vp.HalfPageUp()
+			return m, nil
+		case "g":
+			m.vp.GotoTop()
+			return m, nil
+		case "G":
+			m.vp.GotoBottom()
+			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -94,7 +117,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	oldIndex := m.list.Index()
 	m.list, cmd = m.list.Update(msg)
+
+	// Update viewport content when list selection changes
+	if m.list.Index() != oldIndex && len(m.list.Items()) > 0 {
+		if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+			if listItem, ok := selectedItem.(data.ListItem); ok {
+				m.vp.SetContent(listItem.Details())
+				m.vp.GotoTop() // Reset the scroll position when switching items
+			}
+		}
+	}
+
 	return m, cmd
 }
 
