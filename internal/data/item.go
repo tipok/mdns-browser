@@ -34,6 +34,37 @@ func truncateString(title string, maxWidth int) string {
 	return title[:availableWidth-3] + "..."
 }
 
+func wrapString(text string, maxWidth int) []string {
+	if maxWidth <= 0 {
+		return []string{text}
+	}
+
+	if len(text) <= maxWidth {
+		return []string{text}
+	}
+
+	var lines []string
+	for len(text) > maxWidth {
+		// Find the best break point (prefer spaces)
+		breakPoint := maxWidth
+		for i := maxWidth - 1; i >= 0; i-- {
+			if text[i] == ' ' {
+				breakPoint = i
+				break
+			}
+		}
+
+		lines = append(lines, text[:breakPoint])
+		text = strings.TrimLeft(text[breakPoint:], " ")
+	}
+
+	if len(text) > 0 {
+		lines = append(lines, text)
+	}
+
+	return lines
+}
+
 func (i ListItem) Title() string {
 	if strings.TrimSpace(i.Name) == "" {
 		return truncateString(i.Host, i.MaxListWidth)
@@ -45,6 +76,32 @@ func (i ListItem) Description() string {
 }
 func (i ListItem) FilterValue() string {
 	return i.Title()
+}
+
+// addWrappedValue adds a label-value pair with wrapping support for long values
+func (i ListItem) addWrappedValue(details []string, labelStyle lipgloss.Style, valueStyle lipgloss.Style, label, value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return details
+	}
+
+	// Account for label width and padding when calculating available width for value
+	labelWidth := len(label)
+	availableWidth := i.MaxDetailsWidth - labelWidth - 4 // Conservative padding estimate
+
+	wrappedLines := wrapString(value, availableWidth)
+
+	// The first line includes the label
+	if len(wrappedLines) > 0 {
+		details = append(details, labelStyle.Render(label)+valueStyle.Render(wrappedLines[0]))
+
+		// Later lines are indented to align with the value
+		indent := strings.Repeat(" ", labelWidth)
+		for _, line := range wrappedLines[1:] {
+			details = append(details, indent+valueStyle.Render(line))
+		}
+	}
+
+	return details
 }
 
 // Details are used for the details view which is showing all the
@@ -79,32 +136,24 @@ func (i ListItem) Details() string {
 	// Title
 	details = append(details, titleStyle.Render("🔍 Service Details"))
 
-	// Service details
-	if strings.TrimSpace(i.Name) != "" {
-		details = append(details, labelStyle.Render("Service Name: ")+valueStyle.Render(i.Name))
-	}
-
-	if strings.TrimSpace(i.Host) != "" {
-		details = append(details, labelStyle.Render("Host: ")+valueStyle.Render(i.Host))
-	}
-
-	if strings.TrimSpace(i.AddrV4) != "" {
-		details = append(details, labelStyle.Render("IPv4 Address: ")+valueStyle.Render(i.AddrV4))
-	}
-
-	if strings.TrimSpace(i.AddrV6) != "" {
-		details = append(details, labelStyle.Render("IPv6 Address: ")+valueStyle.Render(i.AddrV6))
-	}
+	// Service details with wrapping
+	details = i.addWrappedValue(details, labelStyle, valueStyle, "Service Name: ", i.Name)
+	details = i.addWrappedValue(details, labelStyle, valueStyle, "Host: ", i.Host)
+	details = i.addWrappedValue(details, labelStyle, valueStyle, "IPv4 Address: ", i.AddrV4)
+	details = i.addWrappedValue(details, labelStyle, valueStyle, "IPv6 Address: ", i.AddrV6)
 
 	if i.Port > 0 {
-		details = append(details, labelStyle.Render("Port: ")+valueStyle.Render(fmt.Sprintf("%d", i.Port)))
+		details = i.addWrappedValue(details, labelStyle, valueStyle, "Port: ", fmt.Sprintf("%d", i.Port))
 	}
 
 	// Additional information section
 	if strings.TrimSpace(i.Info) != "" {
 		details = append(details, "")
 		details = append(details, sectionStyle.Render("📋 Additional Information"))
-		details = append(details, i.Info)
+
+		// Wrap the info text
+		wrappedInfo := wrapString(i.Info, i.MaxDetailsWidth-4) // Account for padding
+		details = append(details, wrappedInfo...)
 	}
 
 	// Service fields section
@@ -113,7 +162,14 @@ func (i ListItem) Details() string {
 		details = append(details, sectionStyle.Render("🏷️  Service Fields"))
 		for _, field := range i.InfoFields {
 			if strings.TrimSpace(field) != "" {
-				details = append(details, bulletStyle.Render("• ")+field)
+				// Wrap individual service fields
+				wrappedField := wrapString(field, i.MaxDetailsWidth-6) // Account for bullet and padding
+				if len(wrappedField) > 0 {
+					details = append(details, bulletStyle.Render("• ")+wrappedField[0])
+					for _, line := range wrappedField[1:] {
+						details = append(details, "  "+line) // Indent continuation lines
+					}
+				}
 			}
 		}
 	}
