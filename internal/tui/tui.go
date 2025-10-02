@@ -37,6 +37,7 @@ type model struct {
 	spinnerTick tea.Cmd
 	listWidth   int
 	vpWidth     int
+	focusedView int // 0 = list, 1 = viewport
 }
 
 func (m model) Init() tea.Cmd {
@@ -46,31 +47,46 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
+		k := msg.String()
+		switch k {
+		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "tab":
+			// Switch between list and viewport focus
+			m.focusedView = (m.focusedView + 1) % 2
+			return m, nil
 		case "j", "down":
-			if m.list.Index() == len(m.list.Items())-1 {
+			if m.focusedView == 1 { // viewport focused
 				m.vp.ScrollDown(1)
 				return m, nil
 			}
+			// Otherwise handle in the list below
 		case "k", "up":
-			if m.list.Index() == 0 {
+			if m.focusedView == 1 { // viewport focused
 				m.vp.ScrollUp(1)
 				return m, nil
 			}
-		case "ctrl+j":
-			m.vp.HalfPageDown()
-			return m, nil
-		case "ctrl+k":
-			m.vp.HalfPageUp()
-			return m, nil
+			// Otherwise handle in the list below
+		case "ctrl+j", "pgdown":
+			if m.focusedView == 1 {
+				m.vp.HalfPageDown()
+				return m, nil
+			}
+		case "ctrl+k", "pgup":
+			if m.focusedView == 1 {
+				m.vp.HalfPageUp()
+				return m, nil
+			}
 		case "g":
-			m.vp.GotoTop()
-			return m, nil
+			if m.focusedView == 1 {
+				m.vp.GotoTop()
+				return m, nil
+			}
 		case "G":
-			m.vp.GotoBottom()
-			return m, nil
+			if m.focusedView == 1 {
+				m.vp.GotoBottom()
+				return m, nil
+			}
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -117,15 +133,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	oldIndex := m.list.Index()
-	m.list, cmd = m.list.Update(msg)
 
-	// Update viewport content when list selection changes
-	if m.list.Index() != oldIndex && len(m.list.Items()) > 0 {
-		if selectedItem := m.list.SelectedItem(); selectedItem != nil {
-			if listItem, ok := selectedItem.(data.ListItem); ok {
-				m.vp.SetContent(listItem.Details())
-				m.vp.GotoTop() // Reset the scroll position when switching items
+	// Only update the list if it's focused
+	if m.focusedView == 0 {
+		oldIndex := m.list.Index()
+		m.list, cmd = m.list.Update(msg)
+
+		// Update viewport content when list selection changes
+		if m.list.Index() != oldIndex && len(m.list.Items()) > 0 {
+			if selectedItem := m.list.SelectedItem(); selectedItem != nil {
+				if listItem, ok := selectedItem.(data.ListItem); ok {
+					m.vp.SetContent(listItem.Details())
+					m.vp.GotoTop() // Reset the scroll position when switching items
+				}
 			}
 		}
 	}
@@ -134,8 +154,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	listView := lipgloss.NewStyle().Width(m.listWidth).Render(m.list.View())
-	vpView := lipgloss.NewStyle().Width(m.vpWidth).Render(m.vp.View())
+	// Style focused and unfocused views differently
+	listStyle := lipgloss.NewStyle().Width(m.listWidth)
+	vpStyle := lipgloss.NewStyle().Width(m.vpWidth)
+
+	if m.focusedView == 0 { // list focused
+		listStyle = listStyle.BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4"))
+		vpStyle = vpStyle.BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#666666"))
+	} else { // viewport focused
+		listStyle = listStyle.BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#666666"))
+		vpStyle = vpStyle.BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7D56F4"))
+	}
+
+	listView := listStyle.Render(m.list.View())
+	vpView := vpStyle.Render(m.vp.View())
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, vpView)
 }
 
