@@ -157,9 +157,10 @@ func (i ListItem) Details() string {
 	}
 
 	// Service fields section
-	if len(i.InfoFields) > 0 {
+	hasServiceFields := len(i.InfoFields) > 0 && len(i.InfoFields) != 1 || strings.TrimSpace(i.InfoFields[0]) != ""
+	if hasServiceFields {
 		details = append(details, "")
-		details = append(details, sectionStyle.Render("🏷️  Service Fields"))
+		details = append(details, sectionStyle.Render("🏷️ Service Fields"))
 		for _, field := range i.InfoFields {
 			if strings.TrimSpace(field) != "" {
 				// Wrap individual service fields
