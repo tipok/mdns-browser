@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 type ListItem struct {
@@ -39,27 +40,52 @@ func wrapString(text string, maxWidth int) []string {
 		return []string{text}
 	}
 
-	if len(text) <= maxWidth {
+	// Use visual width instead of byte length
+	if runewidth.StringWidth(text) <= maxWidth {
 		return []string{text}
 	}
 
 	var lines []string
-	for len(text) > maxWidth {
-		// Find the best break point (prefer spaces)
-		breakPoint := maxWidth
-		for i := maxWidth - 1; i >= 0; i-- {
-			if text[i] == ' ' {
-				breakPoint = i
+	runes := []rune(text)
+
+	for len(runes) > 0 {
+		currentWidth := 0
+		breakPoint := 0
+		lastSpacePoint := -1
+
+		// Find where to break based on visual width
+		for i, r := range runes {
+			charWidth := runewidth.RuneWidth(r)
+			if currentWidth+charWidth > maxWidth {
 				break
+			}
+			currentWidth += charWidth
+			breakPoint = i + 1
+
+			// Track the last space for better breaking
+			if r == ' ' {
+				lastSpacePoint = i
 			}
 		}
 
-		lines = append(lines, text[:breakPoint])
-		text = strings.TrimLeft(text[breakPoint:], " ")
-	}
+		// If we found a space and it's reasonable, break there
+		if lastSpacePoint != -1 && lastSpacePoint > breakPoint/2 {
+			breakPoint = lastSpacePoint
+		}
 
-	if len(text) > 0 {
-		lines = append(lines, text)
+		// Extract the line
+		if breakPoint == 0 {
+			breakPoint = 1 // Ensure we make progress
+		}
+
+		line := string(runes[:breakPoint])
+		lines = append(lines, line)
+
+		// Remove the processed part and any leading spaces
+		runes = runes[breakPoint:]
+		for len(runes) > 0 && runes[0] == ' ' {
+			runes = runes[1:]
+		}
 	}
 
 	return lines
@@ -85,7 +111,7 @@ func (i ListItem) addWrappedValue(details []string, labelStyle lipgloss.Style, v
 	}
 
 	// Account for label width and padding when calculating available width for value
-	labelWidth := len(label)
+	labelWidth := runewidth.StringWidth(label)
 	availableWidth := i.MaxDetailsWidth - labelWidth - 4 // Conservative padding estimate
 
 	wrappedLines := wrapString(value, availableWidth)
@@ -160,7 +186,7 @@ func (i ListItem) Details() string {
 	hasServiceFields := len(i.InfoFields) > 0 && len(i.InfoFields) != 1 || strings.TrimSpace(i.InfoFields[0]) != ""
 	if hasServiceFields {
 		details = append(details, "")
-		details = append(details, sectionStyle.Render("🏷️ Service Fields"))
+		details = append(details, sectionStyle.Render("🧰 Service Fields"))
 		for _, field := range i.InfoFields {
 			if strings.TrimSpace(field) != "" {
 				// Wrap individual service fields
