@@ -101,7 +101,7 @@ func (i ListItem) Description() string {
 	return truncateString(i.Host, i.MaxListWidth)
 }
 func (i ListItem) FilterValue() string {
-	return i.Title()
+	return i.Details()
 }
 
 // addWrappedValue adds a label-value pair with wrapping support for long values
