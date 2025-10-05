@@ -40,6 +40,18 @@ lint:
 format:
 	goimports -w .
 
+# Check code formatting (CI-friendly, doesn't modify files)
+.PHONY: format-check
+format-check:
+	@echo "Checking code formatting..."
+	@unformatted=$$(goimports -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "The following files are not formatted:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+	@echo "All files are properly formatted."
+
 # Clean build artifacts
 .PHONY: clean
 clean:
